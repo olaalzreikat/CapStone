@@ -1955,7 +1955,7 @@
                 energy: 0,
                 minerals: 0,
                 seeds: 0,
-                research: 10
+                research: 0
             },
 
             // Garden environment settings
@@ -2610,6 +2610,38 @@
                 showGameNotification('Welcome to Celestial Garden', 'Plant your first cosmic flora and start your journey as a cosmic gardener!');
             }, 2000);
         }
+        function updateProgressBars() {
+                const plotElements = document.querySelectorAll('.plot');
+
+                for (let i = 0; i < gameData.garden.length; i++) {
+                    const plot = gameData.garden[i];
+
+                    // Make sure plotElements[i] exists and has a plant
+                    if (plotElements[i] && plot.plantId !== null) {
+                        const progressFill = plotElements[i].querySelector('.progress-fill');
+
+                        if (progressFill) {
+                            // Update the width of the progress bar
+                            progressFill.style.width = `${plot.growthProgress}%`;
+
+                            // Also update the growth stage text
+                            const plant = getPlantById(plot.plantId);
+                            if (plant) {
+                                const stageIndex = Math.min(
+                                    Math.floor(plot.growthProgress / (100 / plant.stages.length)),
+                                    plant.stages.length - 1
+                                );
+                                const currentStage = plant.stages[stageIndex];
+                                const stageElement = plotElements[i].querySelector('.plant-stage');
+
+                                if (stageElement) {
+                                    stageElement.textContent = currentStage;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
         // Initialize event listeners
         function initEventListeners() {
@@ -2756,6 +2788,9 @@
             renderAchievements();
             renderRecentSearches();
 
+            gameData.lastUpdateTime = Date.now();
+
+
             // Start the game interval
             gameInterval = setInterval(() => {
                 if (!isGamePaused) {
@@ -2764,6 +2799,12 @@
             }, 1000); // Update every second
         }
 
+        function updateResources(deltaTime) {
+    // Add resources based on production rates
+    for (const resource in gameData.resources) {
+        gameData.resources[resource] += gameData.resourceRates[resource] * deltaTime;
+    }
+}
         // Main game update function
         function updateGame() {
             const currentTime = Date.now();
@@ -2780,7 +2821,8 @@
             updateResourceDisplay();
             renderGarden();
 
-            
+            updateProgressBars();
+
             // Check for achievements
             checkAchievements();
         }
@@ -2818,33 +2860,26 @@
 
         // Update garden growth
         function updateGardenGrowth(deltaTime) {
-            const { growthMultiplier } = applyDifficultySettings();
+                const { growthMultiplier } = applyDifficultySettings();
 
-            for (let i = 0; i < gameData.garden.length; i++) {
-                const plot = gameData.garden[i];
+                for (let i = 0; i < gameData.garden.length; i++) {
+                    const plot = gameData.garden[i];
 
-                if (plot.plantId) {
-                    const plant = getPlantById(plot.plantId);
-                    if (!plant) continue;
+                    if (plot.plantId) {
+                        const plant = getPlantById(plot.plantId);
+                        if (!plant) continue;
 
-                    // Calculate growth rate based on environment and difficulty
-                    const environmentMultiplier = calculateEnvironmentMultiplier(plant);
-                    const growthRate = (deltaTime / plant.growthTime) * 100 * environmentMultiplier * growthMultiplier;
+                        // Calculate growth rate based on environment and difficulty
+                        const environmentMultiplier = calculateEnvironmentMultiplier(plant);
+                        const growthRate = (deltaTime / plant.growthTime) * 100 * environmentMultiplier * growthMultiplier;
 
-                    // Update growth progress
-                    plot.growthProgress = Math.min(100, plot.growthProgress + growthRate);
+                        // Update growth progress
+                        plot.growthProgress = Math.min(100, plot.growthProgress + growthRate);
 
-                    // Update resource production rates if plant is mature
-                    if (plot.growthProgress >= 100) {
-                        // Plants that have reached maturity continue to produce at reduced rate
-                        for (const [resource, amount] of Object.entries(plant.yield)) {
-                            const productionRate = (amount * environmentMultiplier * plant.yieldMultiplier) / 60; // Per second
-                            gameData.resourceRates[resource] += productionRate;
-                        }
+                        // Don't update resource rates here!
                     }
                 }
             }
-        }
 
         
 
@@ -3426,7 +3461,7 @@
                     name: playerName, // Keep name
                     level: 1,
                     experience: 0,
-                    experienceToNextLevel: 100
+                    experienceToNextLevel: 10
                 },
                 settings: {
                     notificationsEnabled: notificationsEnabled,
@@ -3524,79 +3559,79 @@
 
         // Render garden
         function renderGarden() {
-            gardenGrid.innerHTML = '';
+                gardenGrid.innerHTML = '';
 
-            for (let i = 0; i < gameData.garden.length; i++) {
-                const plot = gameData.garden[i];
-                const plotElement = document.createElement('div');
-                plotElement.classList.add('plot');
-                plotElement.dataset.id = i;
+                for (let i = 0; i < gameData.garden.length; i++) {
+                    const plot = gameData.garden[i];
+                    const plotElement = document.createElement('div');
+                    plotElement.classList.add('plot');
+                    plotElement.dataset.id = i;
 
-                if (plot.plantId === null) {
-                    // Empty plot
-                    plotElement.classList.add('empty');
-                    plotElement.innerHTML = `
-                        <div class="plot-content">
-                            <div>Click to plant</div>
-                        </div>
-                    `;
+                    if (plot.plantId === null) {
+                        // Empty plot
+                        plotElement.classList.add('empty');
+                        plotElement.innerHTML = `
+                <div class="plot-content">
+                    <div>Click to plant</div>
+                </div>
+            `;
 
-                    plotElement.addEventListener('click', () => {
-                        gameData.selectedPlot = i;
-                        openPlantSelectionModal();
-                    });
-                } else {
-                    // Plot with plant
-                    const plant = getPlantById(plot.plantId);
-                    if (!plant) continue;
-
-                    // Calculate current growth stage
-                    const stageIndex = Math.min(
-                        Math.floor(plot.growthProgress / (100 / plant.stages.length)),
-                        plant.stages.length - 1
-                    );
-                    const currentStage = plant.stages[stageIndex];
-
-                    // Calculate environment compatibility for visual cue
-                    const environmentMultiplier = calculateEnvironmentMultiplier(plant);
-                    let compatibilityClass = '';
-
-                    if (environmentMultiplier >= 0.9) {
-                        compatibilityClass = 'excellent';
-                    } else if (environmentMultiplier >= 0.7) {
-                        compatibilityClass = 'good';
-                    } else if (environmentMultiplier >= 0.4) {
-                        compatibilityClass = 'fair';
+                        plotElement.addEventListener('click', () => {
+                            gameData.selectedPlot = i;
+                            openPlantSelectionModal();
+                        });
                     } else {
-                        compatibilityClass = 'poor';
+                        // Plot with plant
+                        const plant = getPlantById(plot.plantId);
+                        if (!plant) continue;
+
+                        // Calculate current growth stage
+                        const stageIndex = Math.min(
+                            Math.floor(plot.growthProgress / (100 / plant.stages.length)),
+                            plant.stages.length - 1
+                        );
+                        const currentStage = plant.stages[stageIndex];
+
+                        // Calculate environment compatibility for visual cue
+                        const environmentMultiplier = calculateEnvironmentMultiplier(plant);
+                        let compatibilityClass = '';
+
+                        if (environmentMultiplier >= 0.9) {
+                            compatibilityClass = 'excellent';
+                        } else if (environmentMultiplier >= 0.7) {
+                            compatibilityClass = 'good';
+                        } else if (environmentMultiplier >= 0.4) {
+                            compatibilityClass = 'fair';
+                        } else {
+                            compatibilityClass = 'poor';
+                        }
+
+                        plotElement.innerHTML = `
+                <div class="plot-content">
+                    <div class="plant-image ${compatibilityClass}">
+                        ${plant.svg}
+                    </div>
+                    <div class="plant-info">
+                        <div class="plant-name">${plant.name}</div>
+                        <div class="plant-stage">${currentStage}</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${plot.growthProgress}%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="plot-background"></div>
+            `;
+
+                        // Set click handler to show plant detail
+                        plotElement.addEventListener('click', () => {
+                            gameData.selectedPlot = i;
+                            openPlantDetailModal(plot.plantId, i);
+                        });
                     }
 
-                    plotElement.innerHTML = `
-                        <div class="plot-content">
-                            <div class="plant-image ${compatibilityClass}">
-                                ${plant.svg}
-                            </div>
-                            <div class="plant-info">
-                                <div class="plant-name">${plant.name}</div>
-                                <div class="plant-stage">${currentStage}</div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: ${plot.growthProgress}%"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="plot-background"></div>
-                    `;
-
-                    // Set click handler to show plant detail
-                    plotElement.addEventListener('click', () => {
-                        gameData.selectedPlot = i;
-                        openPlantDetailModal(plot.plantId, i);
-                    });
+                    gardenGrid.appendChild(plotElement);
                 }
-
-                gardenGrid.appendChild(plotElement);
             }
-        }
 
         
         // Render plant collection
@@ -3676,6 +3711,8 @@
                 plantCollection.appendChild(card);
             }
         }
+
+        
 
         // Render research
         function renderResearch() {
