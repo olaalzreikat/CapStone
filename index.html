@@ -2589,8 +2589,7 @@
             // Render initial game state
             renderGame();
 
-            // Initialize cookie consent
-            cookieConsent.init();
+            
 
             // Balance game resources
             balanceGameResources();
@@ -2648,10 +2647,14 @@
             // Cookie consent buttons
             // Add event listeners to the accept and reject buttons
             acceptCookiesBtn.addEventListener('click', () => {
+                enableStorage();
+
                 // Remove the cookie consent banner
                 cookieConsent.remove();
             });
             rejectCookiesBtn.addEventListener('click', () => {
+                disableStorage();
+
                 // Remove the cookie consent banner
                 cookieConsent.remove();
             });
