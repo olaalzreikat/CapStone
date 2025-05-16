@@ -1916,6 +1916,683 @@
     </div>
 
     <script>
+        // COMPLETE GITHUB PAGES STORAGE SOLUTION
+            // Add this to the top of your JavaScript file
+
+            /**
+             * Celestial Garden Storage System
+             * Designed specifically to work with GitHub Pages restrictions
+             */
+
+            // Storage system configuration
+            const STORAGE_CONFIG = {
+                useIndexedDB: true,      // Try IndexedDB as primary storage
+                useLocalStorage: true,   // Try localStorage as fallback
+                useSessionStorage: true, // Try sessionStorage as final fallback
+                autoSaveInterval: 5 * 60 * 1000, // 5 minutes in milliseconds
+                maxRetries: 3,           // Max retries for storage operations
+                storageKeyPrefix: 'celestialGarden_',
+                storageKeys: {
+                    saveData: 'saveData',
+                    consentStatus: 'consentStatus'
+                }
+            };
+
+            // Storage state tracking
+            let storageSystem = {
+                consentGiven: false,
+                primaryMethod: null,  // Will be set to 'indexedDB', 'localStorage', 'sessionStorage', or null
+                indexedDB: {
+                    available: false,
+                    db: null
+                },
+                localStorage: {
+                    available: false
+                },
+                sessionStorage: {
+                    available: false
+                },
+                autoSaveTimer: null
+            };
+
+            // Storage system initialization
+            async function initializeStorage() {
+                console.log('Initializing storage system...');
+
+                // Check each storage method availability
+                if (STORAGE_CONFIG.useIndexedDB) {
+                    await checkIndexedDBAvailability();
+                }
+
+                if (STORAGE_CONFIG.useLocalStorage) {
+                    checkLocalStorageAvailability();
+                }
+
+                if (STORAGE_CONFIG.useSessionStorage) {
+                    checkSessionStorageAvailability();
+                }
+
+                // Determine best available storage method
+                if (storageSystem.indexedDB.available) {
+                    storageSystem.primaryMethod = 'indexedDB';
+                    console.log('Using IndexedDB as primary storage method');
+                } else if (storageSystem.localStorage.available) {
+                    storageSystem.primaryMethod = 'localStorage';
+                    console.log('Using localStorage as primary storage method');
+                } else if (storageSystem.sessionStorage.available) {
+                    storageSystem.primaryMethod = 'sessionStorage';
+                    console.log('Using sessionStorage as primary storage method (data will be lost when tab is closed)');
+                } else {
+                    storageSystem.primaryMethod = null;
+                    console.warn('No storage methods available! Game progress will not be saved.');
+                }
+
+                // Check for existing consent
+                checkStorageConsent();
+
+                return storageSystem.primaryMethod !== null;
+            }
+
+            // Check IndexedDB availability
+            async function checkIndexedDBAvailability() {
+                if (!window.indexedDB) {
+                    console.log('IndexedDB not supported by this browser');
+                    storageSystem.indexedDB.available = false;
+                    return false;
+                }
+
+                try {
+                    // Try to open a test database
+                    const dbPromise = new Promise((resolve, reject) => {
+                        const request = indexedDB.open(`${STORAGE_CONFIG.storageKeyPrefix}test`, 1);
+
+                        request.onerror = (event) => {
+                            console.error('IndexedDB test failed:', event);
+                            reject(new Error('IndexedDB access denied'));
+                        };
+
+                        request.onupgradeneeded = (event) => {
+                            const db = event.target.result;
+                            // Create a test object store
+                            if (!db.objectStoreNames.contains('test')) {
+                                db.createObjectStore('test', { keyPath: 'id' });
+                            }
+                        };
+
+                        request.onsuccess = (event) => {
+                            const db = event.target.result;
+                            // Test complete, close and delete test database
+                            db.close();
+
+                            // Try to delete the test database
+                            const deleteRequest = indexedDB.deleteDatabase(`${STORAGE_CONFIG.storageKeyPrefix}test`);
+                            deleteRequest.onsuccess = () => {
+                                resolve(true);
+                            };
+                            deleteRequest.onerror = () => {
+                                // Non-critical error, still mark as available
+                                resolve(true);
+                            };
+                        };
+                    });
+
+                    await dbPromise;
+
+                    // If we got here, IndexedDB is available
+                    storageSystem.indexedDB.available = true;
+
+                    // Initialize the actual game database
+                    await initializeGameDatabase();
+
+                    return true;
+                } catch (error) {
+                    console.error('IndexedDB availability check failed:', error);
+                    storageSystem.indexedDB.available = false;
+                    return false;
+                }
+            }
+
+            // Initialize the game database
+            async function initializeGameDatabase() {
+                return new Promise((resolve, reject) => {
+                    const dbRequest = indexedDB.open(`${STORAGE_CONFIG.storageKeyPrefix}gameData`, 1);
+
+                    dbRequest.onerror = (event) => {
+                        console.error('Failed to open game database:', event);
+                        reject(new Error('Failed to open game database'));
+                    };
+
+                    dbRequest.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+
+                        // Create object stores
+                        if (!db.objectStoreNames.contains('gameData')) {
+                            db.createObjectStore('gameData', { keyPath: 'id' });
+                        }
+                    };
+
+                    dbRequest.onsuccess = (event) => {
+                        storageSystem.indexedDB.db = event.target.result;
+                        console.log('Game database initialized successfully');
+                        resolve(true);
+                    };
+                });
+            }
+
+            // Check localStorage availability
+            function checkLocalStorageAvailability() {
+                try {
+                    const testKey = `${STORAGE_CONFIG.storageKeyPrefix}test`;
+                    localStorage.setItem(testKey, 'test');
+                    const result = localStorage.getItem(testKey);
+                    localStorage.removeItem(testKey);
+
+                    storageSystem.localStorage.available = (result === 'test');
+                    return storageSystem.localStorage.available;
+                } catch (error) {
+                    console.warn('localStorage not available:', error);
+                    storageSystem.localStorage.available = false;
+                    return false;
+                }
+            }
+
+            // Check sessionStorage availability
+            function checkSessionStorageAvailability() {
+                try {
+                    const testKey = `${STORAGE_CONFIG.storageKeyPrefix}test`;
+                    sessionStorage.setItem(testKey, 'test');
+                    const result = sessionStorage.getItem(testKey);
+                    sessionStorage.removeItem(testKey);
+
+                    storageSystem.sessionStorage.available = (result === 'test');
+                    return storageSystem.sessionStorage.available;
+                } catch (error) {
+                    console.warn('sessionStorage not available:', error);
+                    storageSystem.sessionStorage.available = false;
+                    return false;
+                }
+            }
+
+            // Save game data using the best available method
+            async function saveGameData(manual = false) {
+                if (!storageSystem.consentGiven || storageSystem.primaryMethod === null) {
+                    if (manual) {
+                        showToast('Unable to save: Storage consent not given or no storage available', 'error');
+                    }
+                    return false;
+                }
+
+                // Update session data in gameData
+                gameData.session.totalPlayTime += Math.floor((Date.now() - gameData.session.startTime) / 1000);
+                gameData.session.startTime = Date.now();
+                gameData.lastSaveTime = Date.now();
+
+                try {
+                    let success = false;
+
+                    // Use the appropriate storage method
+                    switch (storageSystem.primaryMethod) {
+                        case 'indexedDB':
+                            success = await saveToIndexedDB(gameData);
+                            break;
+                        case 'localStorage':
+                            success = saveToLocalStorage(gameData);
+                            break;
+                        case 'sessionStorage':
+                            success = saveToSessionStorage(gameData);
+                            break;
+                    }
+
+                    if (success) {
+                        if (manual) {
+                            showToast('Game saved successfully!', 'success');
+                            showGameNotification('Game Saved', 'Your cosmic garden has been safely stored!');
+                        }
+                        return true;
+                    } else {
+                        throw new Error('Save operation failed');
+                    }
+                } catch (error) {
+                    console.error('Save error:', error);
+                    if (manual) {
+                        showToast(`Failed to save game: ${error.message}`, 'error');
+                    }
+                    return false;
+                }
+            }
+
+            // Load game data using the best available method
+            async function loadGameData(manual = false) {
+                if (!storageSystem.consentGiven || storageSystem.primaryMethod === null) {
+                    if (manual) {
+                        showToast('Unable to load: Storage consent not given or no storage available', 'error');
+                    }
+                    return false;
+                }
+
+                try {
+                    let loadedData = null;
+
+                    // Use the appropriate storage method
+                    switch (storageSystem.primaryMethod) {
+                        case 'indexedDB':
+                            loadedData = await loadFromIndexedDB();
+                            break;
+                        case 'localStorage':
+                            loadedData = loadFromLocalStorage();
+                            break;
+                        case 'sessionStorage':
+                            loadedData = loadFromSessionStorage();
+                            break;
+                    }
+
+                    if (loadedData) {
+                        // Merge saved data with default game data
+                        Object.assign(gameData, loadedData);
+
+                        // Reset session start time but preserve total playtime
+                        gameData.session.startTime = Date.now();
+
+                        // Set theme from saved data
+                        applyTheme();
+
+                        // Restore search inputs if they exist
+                        if (gameData.lastSearch) {
+                            plantSearch.value = gameData.lastSearch.term || '';
+                            plantFilter.value = gameData.lastSearch.filter || 'all';
+                        }
+
+                        // Update UI
+                        playerNameInput.value = gameData.player.name;
+                        notificationsEnabledCheckbox.checked = gameData.settings.notificationsEnabled;
+                        difficultySelect.value = gameData.settings.difficulty;
+
+                        // Update game display
+                        updateEnvironmentSliders();
+                        updateResourceDisplay();
+                        renderGame();
+
+                        if (manual) {
+                            showToast('Game loaded successfully!', 'success');
+                            showGameNotification('Game Loaded', 'Your cosmic garden has been restored!');
+                        }
+                        return true;
+                    } else {
+                        if (manual) {
+                            showToast('No saved game found', 'warning');
+                        }
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('Load error:', error);
+                    if (manual) {
+                        showToast(`Failed to load game: ${error.message}`, 'error');
+                    }
+                    return false;
+                }
+            }
+
+            // Save data to IndexedDB
+            async function saveToIndexedDB(data) {
+                return new Promise((resolve, reject) => {
+                    if (!storageSystem.indexedDB.db) {
+                        reject(new Error('IndexedDB not initialized'));
+                        return;
+                    }
+
+                    try {
+                        const transaction = storageSystem.indexedDB.db.transaction(['gameData'], 'readwrite');
+                        const store = transaction.objectStore('gameData');
+
+                        // Prepare data object with ID
+                        const saveData = {
+                            id: STORAGE_CONFIG.storageKeys.saveData,
+                            ...data
+                        };
+
+                        const request = store.put(saveData);
+
+                        request.onsuccess = () => {
+                            resolve(true);
+                        };
+
+                        request.onerror = (event) => {
+                            console.error('IndexedDB save error:', event);
+                            reject(new Error('Failed to save to IndexedDB'));
+                        };
+
+                        // Handle transaction errors
+                        transaction.onerror = (event) => {
+                            console.error('IndexedDB transaction error:', event);
+                            reject(new Error('IndexedDB transaction failed'));
+                        };
+                    } catch (error) {
+                        console.error('IndexedDB save exception:', error);
+                        reject(error);
+                    }
+                });
+            }
+
+            // Load data from IndexedDB
+            async function loadFromIndexedDB() {
+                return new Promise((resolve, reject) => {
+                    if (!storageSystem.indexedDB.db) {
+                        reject(new Error('IndexedDB not initialized'));
+                        return;
+                    }
+
+                    try {
+                        const transaction = storageSystem.indexedDB.db.transaction(['gameData'], 'readonly');
+                        const store = transaction.objectStore('gameData');
+                        const request = store.get(STORAGE_CONFIG.storageKeys.saveData);
+
+                        request.onsuccess = (event) => {
+                            const result = event.target.result;
+                            if (result) {
+                                // Delete the ID property as it's not part of gameData structure
+                                delete result.id;
+                                resolve(result);
+                            } else {
+                                resolve(null); // No saved data found
+                            }
+                        };
+
+                        request.onerror = (event) => {
+                            console.error('IndexedDB load error:', event);
+                            reject(new Error('Failed to load from IndexedDB'));
+                        };
+                    } catch (error) {
+                        console.error('IndexedDB load exception:', error);
+                        reject(error);
+                    }
+                });
+            }
+
+            // Save data to localStorage
+            function saveToLocalStorage(data) {
+                try {
+                    const saveString = JSON.stringify(data);
+                    localStorage.setItem(
+                        `${STORAGE_CONFIG.storageKeyPrefix}${STORAGE_CONFIG.storageKeys.saveData}`,
+                        saveString
+                    );
+                    return true;
+                } catch (error) {
+                    console.error('localStorage save error:', error);
+                    return false;
+                }
+            }
+
+            // Load data from localStorage
+            function loadFromLocalStorage() {
+                try {
+                    const savedGame = localStorage.getItem(
+                        `${STORAGE_CONFIG.storageKeyPrefix}${STORAGE_CONFIG.storageKeys.saveData}`
+                    );
+
+                    if (savedGame) {
+                        return JSON.parse(savedGame);
+                    }
+                    return null;
+                } catch (error) {
+                    console.error('localStorage load error:', error);
+                    return null;
+                }
+            }
+
+            // Save data to sessionStorage
+            function saveToSessionStorage(data) {
+                try {
+                    const saveString = JSON.stringify(data);
+                    sessionStorage.setItem(
+                        `${STORAGE_CONFIG.storageKeyPrefix}${STORAGE_CONFIG.storageKeys.saveData}`,
+                        saveString
+                    );
+                    return true;
+                } catch (error) {
+                    console.error('sessionStorage save error:', error);
+                    return false;
+                }
+            }
+
+            // Load data from sessionStorage
+            function loadFromSessionStorage() {
+                try {
+                    const savedGame = sessionStorage.getItem(
+                        `${STORAGE_CONFIG.storageKeyPrefix}${STORAGE_CONFIG.storageKeys.saveData}`
+                    );
+
+                    if (savedGame) {
+                        return JSON.parse(savedGame);
+                    }
+                    return null;
+                } catch (error) {
+                    console.error('sessionStorage load error:', error);
+                    return null;
+                }
+            }
+
+            // Check storage consent
+            function checkStorageConsent() {
+                let consentStatus = null;
+
+                // Try to get consent from available storage methods
+                if (storageSystem.localStorage.available) {
+                    consentStatus = localStorage.getItem(
+                        `${STORAGE_CONFIG.storageKeyPrefix}${STORAGE_CONFIG.storageKeys.consentStatus}`
+                    );
+                } else if (storageSystem.sessionStorage.available) {
+                    consentStatus = sessionStorage.getItem(
+                        `${STORAGE_CONFIG.storageKeyPrefix}${STORAGE_CONFIG.storageKeys.consentStatus}`
+                    );
+                }
+
+                if (consentStatus === 'accepted') {
+                    enableStorage();
+                    return true;
+                } else if (consentStatus === 'rejected') {
+                    disableStorage();
+                    return false;
+                } else {
+                    // Show cookie consent prompt
+                    const cookieConsent = document.getElementById('cookie-consent');
+                    if (cookieConsent) {
+                        cookieConsent.style.display = 'block';
+                    }
+                    return false;
+                }
+            }
+
+            // Enable storage
+            function enableStorage() {
+                storageSystem.consentGiven = true;
+
+                // Store consent in available storage methods
+                if (storageSystem.localStorage.available) {
+                    localStorage.setItem(
+                        `${STORAGE_CONFIG.storageKeyPrefix}${STORAGE_CONFIG.storageKeys.consentStatus}`,
+                        'accepted'
+                    );
+                }
+
+                if (storageSystem.sessionStorage.available) {
+                    sessionStorage.setItem(
+                        `${STORAGE_CONFIG.storageKeyPrefix}${STORAGE_CONFIG.storageKeys.consentStatus}`,
+                        'accepted'
+                    );
+                }
+
+                // Update game settings
+                gameData.settings.cookiesAccepted = true;
+
+                // Hide cookie consent banner
+                const cookieConsent = document.getElementById('cookie-consent');
+                if (cookieConsent) {
+                    cookieConsent.style.display = 'none';
+                }
+
+                // Set up auto-save
+                setupAutoSave();
+
+                showToast('Game data will be saved automatically', 'success');
+            }
+
+            // Disable storage
+            function disableStorage() {
+                storageSystem.consentGiven = false;
+
+                // Store rejection in available storage methods
+                if (storageSystem.localStorage.available) {
+                    localStorage.setItem(
+                        `${STORAGE_CONFIG.storageKeyPrefix}${STORAGE_CONFIG.storageKeys.consentStatus}`,
+                        'rejected'
+                    );
+                }
+
+                if (storageSystem.sessionStorage.available) {
+                    sessionStorage.setItem(
+                        `${STORAGE_CONFIG.storageKeyPrefix}${STORAGE_CONFIG.storageKeys.consentStatus}`,
+                        'rejected'
+                    );
+                }
+
+                // Update game settings
+                gameData.settings.cookiesAccepted = false;
+
+                // Hide cookie consent banner
+                const cookieConsent = document.getElementById('cookie-consent');
+                if (cookieConsent) {
+                    cookieConsent.style.display = 'none';
+                }
+
+                // Clear any auto-save timer
+                if (storageSystem.autoSaveTimer) {
+                    clearInterval(storageSystem.autoSaveTimer);
+                    storageSystem.autoSaveTimer = null;
+                }
+
+                showToast('Game will continue without saving progress', 'warning');
+            }
+
+            // Set up auto-save
+            function setupAutoSave() {
+                // Clear any existing timer
+                if (storageSystem.autoSaveTimer) {
+                    clearInterval(storageSystem.autoSaveTimer);
+                }
+
+                // Set up new timer if consent given
+                if (storageSystem.consentGiven && storageSystem.primaryMethod !== null) {
+                    storageSystem.autoSaveTimer = setInterval(() => {
+                        saveGameData(false);
+                    }, STORAGE_CONFIG.autoSaveInterval);
+                }
+            }
+
+            // Set up storage event listeners
+            function initStorageEventListeners() {
+                // Cookie consent buttons
+                const acceptCookiesBtn = document.getElementById('accept-cookies');
+                const rejectCookiesBtn = document.getElementById('reject-cookies');
+
+                if (acceptCookiesBtn) {
+                    acceptCookiesBtn.addEventListener('click', () => {
+                        enableStorage();
+                        // Try to load existing game or start new one
+                        loadGameData(false).then(loaded => {
+                            if (!loaded) {
+                                startNewGame();
+                            }
+                        });
+                    });
+                }
+
+                if (rejectCookiesBtn) {
+                    rejectCookiesBtn.addEventListener('click', () => {
+                        disableStorage();
+                        // Always start a new game if rejecting storage
+                        startNewGame();
+                    });
+                }
+
+                // Setup beforeunload handler to save game when leaving
+                window.addEventListener('beforeunload', () => {
+                    if (storageSystem.consentGiven && storageSystem.primaryMethod !== null) {
+                        saveGameData(false);
+                    }
+                });
+
+                // Add manual save button event listener
+                const manualSaveBtn = document.getElementById('manual-save-btn');
+                if (manualSaveBtn) {
+                    manualSaveBtn.addEventListener('click', () => {
+                        saveGameData(true);
+                    });
+                }
+
+                // Add manual load button event listener
+                const manualLoadBtn = document.getElementById('manual-load-btn');
+                if (manualLoadBtn) {
+                    manualLoadBtn.addEventListener('click', () => {
+                        loadGameData(true);
+                    });
+                }
+            }
+
+            // Handle storage errors
+            function handleStorageError(error, operation) {
+                console.error(`Storage error during ${operation}:`, error);
+
+                // Show error message to user
+                showToast(`Storage error: ${error.message}`, 'error');
+
+                // If this was the primary storage method, try to fall back to another method
+                if (storageSystem.primaryMethod === 'indexedDB') {
+                    console.log('Falling back to localStorage');
+                    storageSystem.primaryMethod = storageSystem.localStorage.available ? 'localStorage' : null;
+                } else if (storageSystem.primaryMethod === 'localStorage') {
+                    console.log('Falling back to sessionStorage');
+                    storageSystem.primaryMethod = storageSystem.sessionStorage.available ? 'sessionStorage' : null;
+                }
+
+                // If we have no storage methods available, disable storage
+                if (storageSystem.primaryMethod === null) {
+                    storageSystem.consentGiven = false;
+                    showToast('All storage methods failed. Your progress will not be saved.', 'error');
+                }
+            }
+
+            // Reset storage system
+            function resetStorage() {
+                // Clear all storage
+                if (storageSystem.indexedDB.db) {
+                    try {
+                        const transaction = storageSystem.indexedDB.db.transaction(['gameData'], 'readwrite');
+                        const store = transaction.objectStore('gameData');
+                        store.clear();
+                    } catch (error) {
+                        console.error('Error clearing IndexedDB:', error);
+                    }
+                }
+
+                if (storageSystem.localStorage.available) {
+                    try {
+                        localStorage.removeItem(`${STORAGE_CONFIG.storageKeyPrefix}${STORAGE_CONFIG.storageKeys.saveData}`);
+                    } catch (error) {
+                        console.error('Error clearing localStorage:', error);
+                    }
+                }
+
+                if (storageSystem.sessionStorage.available) {
+                    try {
+                        sessionStorage.removeItem(`${STORAGE_CONFIG.storageKeyPrefix}${STORAGE_CONFIG.storageKeys.saveData}`);
+                    } catch (error) {
+                        console.error('Error clearing sessionStorage:', error);
+                    }
+                }
+
+                showToast('Game data has been reset', 'success');
+            }
         // Game Data Structure
         const gameData = {
             // Player information
@@ -2552,15 +3229,15 @@
         }
 
         // Initialize the game
-        function initGame() {
-            // Check for cookie/storage consent first
-            checkStorageConsent();
+    // ===== MODIFIED GAME INITIALIZATION CODE =====
 
-            // Apply theme
-            applyTheme();
+        // Initialize the game - COMPLETELY REVISED
+        async function initGame() {
+            console.log('Starting Celestial Garden initialization...');
 
-            // Start the session timer
-            startSessionTimer();
+            // Start loading animation
+            loadingOverlay.style.display = 'flex';
+            loadingOverlay.style.opacity = '1';
 
             // Simulate loading progress
             let progress = 0;
@@ -2568,31 +3245,208 @@
                 progress += 5;
                 loadingProgressBar.style.width = `${progress}%`;
 
+                // Add specific loading messages
+                if (progress === 20) {
+                    updateLoadingMessage('Initializing storage system...');
+                } else if (progress === 40) {
+                    updateLoadingMessage('Preparing garden environment...');
+                } else if (progress === 60) {
+                    updateLoadingMessage('Germinating cosmic seeds...');
+                } else if (progress === 80) {
+                    updateLoadingMessage('Calibrating stellar radiation...');
+                }
+
                 if (progress >= 100) {
                     clearInterval(loadingInterval);
+
+                    // Complete initialization when loading animation is done
                     setTimeout(() => {
                         loadingOverlay.style.opacity = 0;
                         setTimeout(() => {
                             loadingOverlay.style.display = 'none';
-                            introModalOverlay.classList.add('active');
+                            completeInitialization();
                         }, 500);
                     }, 500);
                 }
             }, 100);
 
-            // Load game data from local storage
-            loadGameData();
+            // Initialize storage system while loading animation runs
+            try {
+                await initializeStorage();
+                initStorageEventListeners();
+            } catch (error) {
+                console.error('Storage initialization error:', error);
+            }
+        }
+
+        // Update loading message (add this helper function)
+        function updateLoadingMessage(message) {
+            const loadingText = document.querySelector('.loading-text');
+            if (loadingText) {
+                loadingText.textContent = message;
+            }
+        }
+
+        // Complete game initialization after loading animation
+        async function completeInitialization() {
+            console.log('Completing game initialization...');
+
+            // Apply theme
+            applyTheme();
+
+            // Start the session timer
+            startSessionTimer();
 
             // Initialize event listeners
             initEventListeners();
 
-            // Render initial game state
+            // Check if we should load saved game or show intro
+            let gameLoaded = false;
+
+            if (storageSystem.consentGiven && storageSystem.primaryMethod !== null) {
+                try {
+                    gameLoaded = await loadGameData(false);
+
+                    if (gameLoaded) {
+                        console.log('Loaded saved game');
+                        startGameLoop();
+                    } else {
+                        console.log('No saved game found, showing intro');
+                        showIntroScreen();
+                    }
+                } catch (error) {
+                    console.error('Error loading game:', error);
+                    showIntroScreen();
+                }
+            } else {
+                console.log('Storage not consented or available, showing intro');
+                showIntroScreen();
+            }
+        }
+
+        // Show intro screen
+        function showIntroScreen() {
+            // Show intro modal
+            introModalOverlay.classList.add('active');
+
+            // Set up start button
+            startGameBtn.addEventListener('click', () => {
+                introModalOverlay.classList.remove('active');
+                startNewGame();
+            });
+        }
+
+        // Start a new game
+        function startNewGame() {
+            console.log('Starting new game...');
+
+            // Discover the first two plants for easier start
+            addPlantToDiscovery('cosmo_bloom');
+            addPlantToDiscovery('stellar_fern');
+
+            // Mark first research as available
+            updateResearchAvailability();
+
+            // Save initial game state if storage is enabled
+            if (storageSystem.consentGiven && storageSystem.primaryMethod !== null) {
+                saveGameData(false);
+            }
+
+            // Welcome notification
+            setTimeout(() => {
+                showGameNotification('Welcome to Celestial Garden', 'Plant your first cosmic flora and start your journey as a cosmic gardener!');
+            }, 2000);
+
+            // Start the game loop
+            startGameLoop();
+        }
+
+        // Modify reset game function to use our new storage system
+        function resetGame() {
+            if (!confirm('Are you sure you want to reset your game? All progress will be lost!')) {
+                return;
+            }
+
+            // Store theme and notification settings before reset
+            const theme = gameData.settings.theme;
+            const notificationsEnabled = gameData.settings.notificationsEnabled;
+            const playerName = gameData.player.name;
+
+            // Create a fresh game state
+            Object.assign(gameData, {
+                player: {
+                    name: playerName, // Keep name
+                    level: 1,
+                    experience: 0,
+                    experienceToNextLevel: 10
+                },
+                settings: {
+                    notificationsEnabled: notificationsEnabled,
+                    theme: theme,
+                    cookiesAccepted: storageSystem.consentGiven,
+                    difficulty: 'normal',
+                    autoSaveEnabled: true
+                },
+                session: {
+                    startTime: Date.now(),
+                    totalPlayTime: 0,
+                    lastSaveTime: Date.now()
+                },
+                resources: {
+                    energy: 100,
+                    minerals: 100,
+                    seeds: 50,
+                    research: 20
+                },
+                resourceRates: {
+                    energy: 0,
+                    minerals: 0,
+                    seeds: 0,
+                    research: 0
+                },
+                environment: {
+                    radiation: 50,
+                    gravity: 50,
+                    atmosphere: 50
+                },
+                garden: Array(12).fill().map((_, i) => (
+                    { id: i, plantId: null, growthProgress: 0, plantedTime: null, harvested: 0 }
+                )),
+                discoveredPlants: ['cosmo_bloom', 'stellar_fern'],
+                completedResearch: [],
+                selectedPlant: null,
+                selectedPlot: null,
+                recentSearches: [],
+                lastSearch: {
+                    term: '',
+                    filter: 'all'
+                },
+                version: "1.1.0"
+            });
+
+            // Reset search UI
+            plantSearch.value = '';
+            plantFilter.value = 'all';
+
+            // Update difficulty display
+            difficultySelect.value = 'normal';
+
+            // Update UI
+            updateEnvironmentSliders();
+            updateResourceDisplay();
             renderGame();
+            renderRecentSearches();
 
-            
+            // Reset storage
+            resetStorage();
 
-            // Balance game resources
-            balanceGameResources();
+            // Save the reset state if storage is enabled
+            if (storageSystem.consentGiven && storageSystem.primaryMethod !== null) {
+                saveGameData(true);
+            }
+
+            showToast('Game has been reset', 'success');
+            showGameNotification('Game Reset', 'Your cosmic garden has been reset. Time to start fresh!');
         }
 
         // Start a new game
@@ -2653,7 +3507,7 @@
                 cookieConsent.remove();
             });
             rejectCookiesBtn.addEventListener('click', () => {
-                disableStorage();
+                    disableStorage();
 
                 // Remove the cookie consent banner
                 cookieConsent.remove();
