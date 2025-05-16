@@ -3451,18 +3451,29 @@
 
         // Start a new game
         function startNewGame() {
-            // Discover the first two plants for easier start
-            addPlantToDiscovery('cosmo_bloom');
-            addPlantToDiscovery('stellar_fern');
+                console.log('Starting new game...');
 
-            // Mark first research as available
-            updateResearchAvailability();
+                // Discover plants but don't change resource values
+                addPlantToDiscovery('cosmo_bloom');
+                addPlantToDiscovery('stellar_fern');
 
-            // Welcome notification
-            setTimeout(() => {
-                showGameNotification('Welcome to Celestial Garden', 'Plant your first cosmic flora and start your journey as a cosmic gardener!');
-            }, 2000);
-        }
+                // Mark first research as available
+                updateResearchAvailability();
+
+                // Save initial game state if storage is enabled
+                if (storageSystem.consentGiven && storageSystem.primaryMethod !== null) {
+                    saveGameData(false);
+                }
+
+                // Welcome notification
+                setTimeout(() => {
+                    showGameNotification('Welcome to Celestial Garden', 'Plant your first cosmic flora and start your journey as a cosmic gardener!');
+                }, 2000);
+
+                // Start the game loop
+                startGameLoop();
+            }
+
         function updateProgressBars() {
                 const plotElements = document.querySelectorAll('.plot');
 
@@ -4336,7 +4347,7 @@
                     energy: 100,
                     minerals: 100,
                     seeds: 50,
-                    research: 20
+                    research: 40
                 },
                 resourceRates: {
                     energy: 0,
