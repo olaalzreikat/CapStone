@@ -709,4 +709,4 @@ function resetGame() {
 - `updateGame` changes the game state as time passes
 - `resetGame` deletes all progress and starts over
 
-Together, these functions let the game create data when needed, load existing data, update it during gameplay, and delete it when requested. This is called "CRUD" - Create, Read, Update, Delete - and it's a fundamental pattern in programming.
+These functions let the game create data when needed, load existing data, update it during gameplay, and delete it when requested. This is called "CRUD" - Create, Read, Update, Delete - and it's a fundamental pattern in programming.
