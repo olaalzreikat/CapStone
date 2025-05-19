@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Celestial Garden: Cosmic Flora Evolution</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!-- Session timer -->
+    <div class="session-timer" id="session-timer">
+        Time played: 00:00:00
+    </div>
+
+    <!-- Loading screen -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-container">
+            <div class="loading-logo">🌱</div>
+            <div class="loading-text">Loading Celestial Garden...</div>
+            <div class="loading-progress">
+                <div class="loading-progress-bar" id="loading-progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cookie Consent -->
+    <div class="cookie-consent" id="cookie-consent">
+        <div class="cookie-text">
+            <p>This game uses cookies and local storage to save your progress and settings. Do you consent to the use of
+                cookies and local storage?</p>
+        </div>
+        <div class="cookie-buttons">
+            <button class="cookie-btn reject-cookies" id="reject-cookies">Reject</button>
+            <button class="cookie-btn accept-cookies" id="accept-cookies">Accept</button>
+        </div>
+    </div>
+
+    <!-- Introduction modal -->
+    <div class="modal-overlay" id="intro-modal-overlay">
+        <div class="intro-modal">
+            <div class="intro-logo">🌱</div>
+            <h1 class="intro-title">Celestial Garden</h1>
+            <h2 class="intro-subtitle">Cosmic Flora Evolution</h2>
+            <p class="intro-description">
+                Welcome to your very own cosmic garden! Cultivate exotic alien flora,
+                manipulate cosmic environments, and discover rare plant species as you
+                create a thriving interstellar ecosystem.
+            </p>
+            <div class="intro-features">
+                <div class="intro-feature">
+                    <div class="intro-feature-icon">🌿</div>
+                    <div class="intro-feature-title">Celestial Cultivation</div>
+                    <div class="intro-feature-text">
+                        Plant and nurture exotic alien flora with unique growth patterns and evolutionary paths.
+                    </div>
+                </div>
+                <div class="intro-feature">
+                    <div class="intro-feature-icon">⚡</div>
+                    <div class="intro-feature-title">Resource Management</div>
+                    <div class="intro-feature-text">
+                        Harvest cosmic energy, minerals, and seeds to expand your garden and research new species.
+                    </div>
+                </div>
+                <div class="intro-feature">
+                    <div class="intro-feature-icon">🔬</div>
+                    <div class="intro-feature-title">Research & Discovery</div>
+                    <div class="intro-feature-text">
+                        Unlock new technologies and plant varieties through your scientific research.
+                    </div>
+                </div>
+                <div class="intro-feature">
+                    <div class="intro-feature-icon">🌍</div>
+                    <div class="intro-feature-title">Environmental Control</div>
+                    <div class="intro-feature-text">
+                        Manipulate cosmic radiation, gravity, and atmosphere to create perfect growing conditions.
+                    </div>
+                </div>
+            </div>
+            <button class="start-button" id="start-game-btn">Begin Cultivation</button>
+        </div>
+    </div>
+
+    <!-- Main game container -->
+    <div class="container">
+        <header>
+            <div class="game-title">
+                <div class="logo">🌱</div>
+                <h1>Celestial Garden</h1>
+            </div>
+            <div class="player-info">
+                <div class="player-name" id="player-name">Cosmic Gardener</div>
+                <div class="player-level" id="player-level">Level 1</div>
+                <div class="theme-toggle" id="theme-toggle">
+                    <div class="theme-icon">🌙</div>
+                </div>
+            </div>
+        </header>
+
+        <nav>
+            <div class="nav-section">
+                <div class="nav-title">Garden</div>
+                <button class="nav-button active" data-view="garden">
+                    <div class="nav-icon">🌱</div>
+                    <span>My Garden</span>
+                </button>
+                <button class="nav-button" data-view="collection">
+                    <div class="nav-icon">🌿</div>
+                    <span>Plant Collection</span>
+                </button>
+            </div>
+            <div class="nav-section">
+                <div class="nav-title">Research</div>
+                <button class="nav-button" data-view="research">
+                    <div class="nav-icon">🔬</div>
+                    <span>Research Lab</span>
+                </button>
+                <button class="nav-button" data-view="achievements">
+                    <div class="nav-icon">🏆</div>
+                    <span>Achievements</span>
+                </button>
+            </div>
+            <div class="nav-section">
+                <div class="nav-title">Settings</div>
+                <button class="nav-button" data-view="settings">
+                    <div class="nav-icon">⚙️</div>
+                    <span>Game Settings</span>
+                </button>
+            </div>
+        </nav>
+
+        <main>
+            <!-- Garden View -->
+            <div class="view active" id="garden-view">
+                <div class="environment-controls">
+                    <div class="env-control">
+                        <div class="env-control-label">
+                            <span>Radiation</span>
+                            <span class="env-control-value" id="radiation-value">50%</span>
+                        </div>
+                        <input type="range" min="0" max="100" value="50" class="env-slider" id="radiation-slider">
+                    </div>
+                    <div class="env-control">
+                        <div class="env-control-label">
+                            <span>Gravity</span>
+                            <span class="env-control-value" id="gravity-value">50%</span>
+                        </div>
+                        <input type="range" min="0" max="100" value="50" class="env-slider" id="gravity-slider">
+                    </div>
+                    <div class="env-control">
+                        <div class="env-control-label">
+                            <span>Atmosphere</span>
+                            <span class="env-control-value" id="atmosphere-value">50%</span>
+                        </div>
+                        <input type="range" min="0" max="100" value="50" class="env-slider" id="atmosphere-slider">
+                    </div>
+                </div>
+                <div class="garden-grid" id="garden-grid">
+                    <!-- Garden plots will be generated here -->
+                </div>
+            </div>
+
+            <!-- Plant Collection View -->
+            <div class="view" id="collection-view">
+                <div class="collection-header">
+                    <div class="collection-title">Plant Collection</div>
+                    <div class="search-filter">
+                        <input type="text" placeholder="Search plants..." class="search-input" id="plant-search">
+                        <select class="filter-dropdown" id="plant-filter">
+                            <option value="all">All Plants</option>
+                            <option value="discovered">Discovered</option>
+                            <option value="rare">Rare</option>
+                            <option value="common">Common</option>
+                            <option value="uncommon">Uncommon</option>
+                            <option value="energy">High Energy</option>
+                            <option value="minerals">High Minerals</option>
+                            <option value="seeds">High Seeds</option>
+                            <option value="research">High Research</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="recent-searches" id="recent-searches">
+                    <!-- Recent searches will appear here -->
+                </div>
+                <div class="plant-collection" id="plant-collection">
+                    <!-- Plant collection cards will be generated here -->
+                </div>
+            </div>
+
+            <!-- Research View -->
+            <div class="view" id="research-view">
+                <div class="research-grid" id="research-grid">
+                    <!-- Research cards will be generated here -->
+                </div>
+            </div>
+
+            <!-- Achievements View -->
+            <div class="view" id="achievements-view">
+                <h2>Achievements</h2>
+                <div class="achievements-grid" id="achievements-grid">
+                    <!-- Achievement cards will be generated here -->
+                </div>
+            </div>
+
+            <!-- Settings View -->
+            <div class="view" id="settings-view">
+                <div class="settings-section">
+                    <div class="settings-title">
+                        <span>Game Settings</span>
+                    </div>
+                    <div class="settings-item">
+                        <label class="settings-label" for="player-name-input">Gardener Name</label>
+                        <input type="text" id="player-name-input" class="settings-input" placeholder="Enter your name">
+                    </div>
+                    <div class="settings-item">
+                        <label class="settings-label">
+                            <input type="checkbox" class="settings-checkbox" id="notifications-enabled" checked>
+                            Enable Notifications
+                        </label>
+                    </div>
+                    <div class="settings-item">
+                        <label class="settings-label" for="difficulty-setting">Game Difficulty</label>
+                        <select id="difficulty-setting" class="settings-input">
+                            <option value="easy">Easy - Fast growth, high yields</option>
+                            <option value="normal" selected>Normal - Balanced gameplay</option>
+                            <option value="hard">Hard - Slow growth, challenging resource management</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-title">
+                        <span>Game Data</span>
+                    </div>
+                    <div class="settings-buttons">
+                        <button class="settings-button save" id="manual-save-btn">Save Game</button>
+                        <button class="settings-button load" id="manual-load-btn">Load Game</button>
+                        <button class="settings-button reset" id="reset-game">Reset Game</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <div class="resources-panel">
+            <div class="resource-section">
+                <div class="resource-title">Resources</div>
+                <div class="resource-item">
+                    <div class="resource-name">
+                        <div class="resource-icon energy">⚡</div>
+                        <span>Energy</span>
+                    </div>
+                    <div>
+                        <div class="resource-value" id="energy-value">0</div>
+                        <div class="resource-rate" id="energy-rate">+0.0/s</div>
+                    </div>
+                </div>
+                <div class="resource-item">
+                    <div class="resource-name">
+                        <div class="resource-icon minerals">🔷</div>
+                        <span>Minerals</span>
+                    </div>
+                    <div>
+                        <div class="resource-value" id="minerals-value">0</div>
+                        <div class="resource-rate" id="minerals-rate">+0.0/s</div>
+                    </div>
+                </div>
+                <div class="resource-item">
+                    <div class="resource-name">
+                        <div class="resource-icon seeds">🌱</div>
+                        <span>Seeds</span>
+                    </div>
+                    <div>
+                        <div class="resource-value" id="seeds-value">0</div>
+                        <div class="resource-rate" id="seeds-rate">+0.0/s</div>
+                    </div>
+                </div>
+                <div class="resource-item">
+                    <div class="resource-name">
+                        <div class="resource-icon research">🔬</div>
+                        <span>Research</span>
+                    </div>
+                    <div>
+                        <div class="resource-value" id="research-value">0</div>
+                        <div class="resource-rate" id="research-rate">+0.0/s</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <div>Celestial Garden by: Ola Alzreikat : All rights reserved &copy; 2025</div>
+        </footer>
+    </div>
+
+    <!-- Plant Detail Modal -->
+    <div class="modal-overlay" id="plant-detail-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="plant-detail-title">Plant Detail</div>
+                <button class="modal-close" id="plant-detail-close">&times;</button>
+            </div>
+            <div class="modal-content" id="plant-detail-content">
+                <!-- Plant detail content will be generated here -->
+            </div>
+            <div class="modal-actions">
+                <button class="modal-button secondary" id="plant-detail-close-btn">Close</button>
+                <button class="modal-button primary" id="plant-detail-harvest-btn">Harvest</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plant Selection Modal -->
+    <div class="modal-overlay" id="plant-selection-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Select Plant to Grow</div>
+                <button class="modal-close" id="plant-selection-close">&times;</button>
+            </div>
+            <div class="modal-content">
+                <div class="plant-selection-grid" id="plant-selection-grid">
+                    <!-- Plant selection items will be generated here -->
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-button secondary" id="plant-selection-cancel">Cancel</button>
+                <button class="modal-button primary" id="plant-selection-confirm">Plant</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toast-container">
+        <!-- Toast messages will be generated here -->
+    </div>
+
+    <script src="script.js">       
+    </script>
+</body>
+
+</html>
